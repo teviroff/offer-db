@@ -52,4 +52,4 @@ class UpdateFormSubmitMethod(BaseModel):
 class UpdateFormFields(BaseModel):
     model_config = {'extra': 'ignore'}
 
-    fields: form.FormFields
+    fields: form.Fields

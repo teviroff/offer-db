@@ -1,10 +1,10 @@
 from typing import Self
 
-from ...utils import *
+from utils import *
 from ..base import *
 from .. import user as _user
-from ..opportunity import opportunity as _opportunity
-from ...serializers import mod as ser
+from . import opportunity as _opportunity
+from serializers import mod as ser
 
 
 # class CreateResponseStatusErrorCode(IntEnum):
@@ -66,7 +66,7 @@ class OpportunityResponse(Base):
 
     @classmethod
     def create(cls, session: Session, user: _user.User, opportunity: _opportunity.Opportunity,
-               form: '_form.OpportunityForm', data: ser.OpportunityResponse.Create) -> Self | list[_form.FieldError]:
+               form: '_form.OpportunityForm', data: ser.OpportunityResponse.Create) -> Self | list['_form.FieldError']:
         response = OpportunityResponse(user=user, opportunity=opportunity)
         session.add(response)
         session.flush([response])
@@ -76,4 +76,4 @@ class OpportunityResponse(Base):
         return response
 
 
-from ..opportunity import form as _form
+from . import form as _form

@@ -1,5 +1,5 @@
-from ..serializers.base import *
-from ..serializers.auxillary import (
+from serializers.base import *
+from serializers.auxillary import (
     Date, PhoneNumber, Country, City
 )
 from serializers.user import (

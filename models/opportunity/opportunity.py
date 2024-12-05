@@ -3,13 +3,13 @@ from typing import Any, Collection, Self, Iterable
 from minio import Minio, S3Error
 from sqlalchemy import select, func
 
-from ...utils import *
+from utils import *
 from ..base import *
-from ...serializers import mod as ser
+from serializers import mod as ser
 
 from ..auxillary.address import City
-from ..opportunity import response
-from ..opportunity.form import OpportunityForm
+from . import response
+from .form import OpportunityForm
 
 
 class Opportunity(Base):

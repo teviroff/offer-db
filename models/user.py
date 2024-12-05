@@ -6,9 +6,9 @@ from sqlalchemy.dialects.postgresql import INET, TIMESTAMP
 from minio import Minio
 from minio.error import S3Error
 
-from ..utils import *
-from .base import *
-from ..serializers import mod as ser
+from utils import *
+from models.base import *
+from serializers import mod as ser
 
 
 class PersonalAPIKey(Base):
@@ -227,7 +227,7 @@ class UserInfo(Base):
     def update_surname(self, new_surname: ser.UserInfo.Surname) -> None:
         self.surname = new_surname
 
-    def update_birthday(self, new_birthday: ser.auxillary.Date) -> None:
+    def update_birthday(self, new_birthday: ser.Date) -> None:
         self.birthday = datetime(new_birthday.year, new_birthday.month, new_birthday.day)
 
     update_field_handlers: list[tuple[str, Callable[[Self, Any], None]]] = [
@@ -279,4 +279,4 @@ class CV(Base):
 
 
 # magic fix, placing it in the beggining of a file results in error
-from ..models.opportunity import response
+from models.opportunity import response

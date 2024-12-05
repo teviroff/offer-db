@@ -4,8 +4,8 @@ import re
 
 import mongoengine as mongo
 
-from ...utils import *
-from ...serializers import mod as ser
+from utils import *
+from serializers import mod as ser
 from . import opportunity as _opportunity
 
 
@@ -15,6 +15,10 @@ class SubmitMethod(mongo.EmbeddedDocument):
 class NoopSubmitMethod(SubmitMethod):
     @classmethod
     def create(cls, _data: ser.OpportunityForm.NoopSubmitMethod) -> Self:
+        return NoopSubmitMethod()
+
+    @classmethod
+    def create_explicit(cls) -> Self:
         return NoopSubmitMethod()
 
 class YandexFormsSubmitMethod(SubmitMethod):
@@ -165,25 +169,24 @@ class OpportunityForm(mongo.Document):
         return factory(field)
 
     @classmethod
-    def create_fields(cls, fields: ser.OpportunityForm.FormFields) -> dict[str, FormField]:
+    def create_fields(cls, fields: ser.OpportunityForm.Fields) -> dict[str, FormField]:
         return {name: cls.create_field(field) for name, field in fields.items()}
 
     @classmethod
     def create(cls, *, opportunity: '_opportunity.Opportunity', submit: ser.OpportunityForm.SubmitMethod | None = None,
-               fields: ser.OpportunityForm.FormFields) -> Self:
-        self = OpportunityForm(id=opportunity.id, fields=cls.create_fields(fields))
-        if submit is None:
-            self.submit_method = NoopSubmitMethod.create()
-        else:
-            self.submit_method = cls.create_submit(submit)
+               fields: ser.OpportunityForm.Fields) -> Self:
+        self = OpportunityForm(
+            id=opportunity.id, fields=cls.create_fields(fields),
+            submit_method=(cls.create_submit_method(submit) if submit else NoopSubmitMethod.create_explicit())
+        )
         self.save()
         return self
 
     def update_submit_method(self, submit: ser.OpportunityForm.SubmitMethod) -> None:
-        self.submit_method = self.create_submit(submit)
+        self.submit_method = self.create_submit_method(submit)
         self.save()
 
-    def update_fields(self, fields: ser.OpportunityForm.FormFields) -> None:
+    def update_fields(self, fields: ser.OpportunityForm.Fields) -> None:
         self.fields = self.create_fields(fields)
         self.save()
 
@@ -193,12 +196,12 @@ class ResponseData(mongo.Document):
     data = mongo.MapField(mongo.DynamicField())
 
     @classmethod
-    def extra_field_error(field_name: str) -> FieldError:
+    def extra_field_error(cls, field_name: str) -> FieldError:
         return GenericError(error_code=FieldErrorCode.EXTRA, error_message='Unexpected field',
                             context={'field_name': field_name})
 
     @classmethod
-    def missing_field_error(field_name: str) -> FieldError:
+    def missing_field_error(cls, field_name: str) -> FieldError:
         return GenericError(error_code=FieldErrorCode.MISSING, error_message='Missing required field',
                             context={'field_name': field_name})
 
