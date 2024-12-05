@@ -3,4 +3,5 @@ venv
 *.env
 .git
 .idea
+pgdata
 config.py
