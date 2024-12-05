@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres_container
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5430:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data/pgdata
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    command: >
+      postgres -c max_connections=1000
+               -c shared_buffers=256MB
+               -c effective_cache_size=768MB
+               -c maintenance_work_mem=64MB
+               -c checkpoint_completion_target=0.7
+               -c wal_buffers=16MB
+               -c default_statistics_target=100
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres_user -d postgres_db" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    env_file: ".env"
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_container
+   environment:
+     MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD} 
+     MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  minio:
+    image: minio/minio
+    container_name: minio_container
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server --console-address ":9001" /data
+    env_file: ".env"
+
+volumes:
+  pgdata:
+    driver: local
+  mongo_data:
+  minio_storage: {}
