@@ -1,5 +1,6 @@
 __pycache__
 venv
+*.env
 .git
 .idea
 config.py
