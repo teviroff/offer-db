@@ -4,7 +4,7 @@ import re
 from pydantic import field_validator, HttpUrl
 from pydantic_core import PydanticCustomError
 
-from serializers.base import Annotated, BaseModel, Field as _Field
+from ..base import Annotated, BaseModel, Field as _Field
 
 
 class SubmitMethodBase(BaseModel):

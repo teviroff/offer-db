@@ -1,15 +1,15 @@
-from typing import Any, Collection, Self, Iterable
+from typing import Any, Collection, Self, Iterable, Optional
 
 from minio import Minio, S3Error
 from sqlalchemy import select, func
 
-from utils import *
+from ...utils import *
 from ..base import *
-from serializers import mod as ser
+from ... import serializers as ser
 
 from ..auxillary.address import City
-from . import response
-from .form import OpportunityForm
+from .. import user as _user
+from . import form as _form
 
 
 class Opportunity(Base):
@@ -25,8 +25,8 @@ class Opportunity(Base):
     geo_tags: Mapped[set['OpportunityGeoTag']] = relationship(secondary='opportunity_to_geo_tag',
                                                               back_populates='opportunities')
     card: Mapped['OpportunityCard'] = relationship(back_populates='opportunity', cascade='all, delete-orphan')
-    responses: Mapped[list['response.OpportunityResponse']] = relationship(back_populates='opportunity',
-                                                                           cascade='all, delete-orphan')
+    responses: Mapped[list['OpportunityResponse']] = relationship(back_populates='opportunity',
+                                                                  cascade='all, delete-orphan')
 
     @classmethod
     def create(cls, session: Session, provider: 'OpportunityProvider', fields: ser.Opportunity.Create) -> Self:
@@ -34,8 +34,8 @@ class Opportunity(Base):
         session.add(opportunity)
         return opportunity
 
-    def get_form(self) -> OpportunityForm | None:
-        return OpportunityForm.objects(id=self.id).first()
+    def get_form(self) -> Optional['_form.OpportunityForm']:
+        return _form.OpportunityForm.objects(id=self.id).first()
 
     @classmethod
     def filter(cls, session: Session, *, providers: Collection['OpportunityProvider'],
@@ -223,3 +223,26 @@ class OpportunityCard(Base):
             'tags': [(tag.id, tag.name) for tag in self.opportunity.tags],
             'geo_tags': [(geo_tag.id, geo_tag.city.name) for geo_tag in self.opportunity.geo_tags],
         }
+
+
+class OpportunityResponse(Base):
+    __tablename__ = 'opportunity_response'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('user.id'))
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey('opportunity.id'))
+
+    user: Mapped['_user.User'] = relationship(back_populates='responses')
+    opportunity: Mapped['Opportunity'] = relationship(back_populates='responses')
+    # statuses: Mapped[list['ResponseStatus']] = relationship(back_populates='response')
+
+    @classmethod
+    def create(cls, session: Session, user: _user.User, opportunity: 'Opportunity',
+               form: '_form.OpportunityForm', data: ser.OpportunityResponse.Create) -> Self | list['_form.FieldError']:
+        response = OpportunityResponse(user=user, opportunity=opportunity)
+        session.add(response)
+        session.flush([response])
+        saved_data = _form.ResponseData.create(response_id=response.id, form=form, data=data)
+        if not isinstance(saved_data, _form.ResponseData):
+            return saved_data
+        return response

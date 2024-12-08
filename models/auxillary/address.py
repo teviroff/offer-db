@@ -1,8 +1,8 @@
 from typing import Self
 
-from utils import *
-from models.base import *
-from serializers import mod as ser
+from ...utils import *
+from ...models.base import *
+from ... import serializers as ser
 
 
 class CreateCountryErrorCode(IntEnum):

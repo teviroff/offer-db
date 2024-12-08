@@ -1,5 +1,5 @@
-from serializers.base import *
-import serializers.auxillary as _
+from ..base import *
+from .. import auxillary as _
 
 
 type Name = Annotated[str, Field(max_length=50)]

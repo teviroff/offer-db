@@ -1,8 +1,8 @@
 from pydantic import HttpUrl, field_validator
 from pydantic_core import PydanticCustomError
 
-from serializers.base import *
-import serializers.opportunity.form as form
+from ..base import *
+from . import form
 
 
 type Name = Annotated[str, Field(min_length=1, max_length=50)]

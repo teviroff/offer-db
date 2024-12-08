@@ -1,6 +1,6 @@
 from typing import Any
 
-from serializers.base import *
+from ..base import *
 
 
 type Data = dict[str, Any]

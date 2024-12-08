@@ -1,7 +1,7 @@
 from typing import Self
 from datetime import datetime
 
-from serializers.base import *
+from .base import *
 from pydantic import model_validator
 from pydantic_core import PydanticCustomError
 

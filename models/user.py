@@ -6,9 +6,9 @@ from sqlalchemy.dialects.postgresql import INET, TIMESTAMP
 from minio import Minio
 from minio.error import S3Error
 
-from utils import *
-from models.base import *
-from serializers import mod as ser
+from ..utils import *
+from .base import *
+from .. import serializers as ser
 
 
 class PersonalAPIKey(Base):
@@ -142,7 +142,7 @@ class User(Base):
     personal_api_keys: Mapped[list['PersonalAPIKey']] = \
         relationship(back_populates='user', cascade='all, delete-orphan')
     user_info: Mapped['UserInfo'] = relationship(back_populates='user', cascade='all, delete-orphan')
-    responses: Mapped[list['response.OpportunityResponse']] = \
+    responses: Mapped[list['OpportunityResponse']] = \
         relationship(back_populates='user', cascade='all, delete-orphan')
 
     @classmethod
@@ -279,4 +279,4 @@ class CV(Base):
 
 
 # magic fix, placing it in the beggining of a file results in error
-from models.opportunity import response
+from ..models.opportunity import OpportunityResponse

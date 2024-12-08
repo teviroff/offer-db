@@ -4,9 +4,8 @@ import re
 
 import mongoengine as mongo
 
-from utils import *
-from serializers import mod as ser
-from . import opportunity as _opportunity
+from ...utils import *
+from ... import serializers as ser
 
 
 class SubmitMethod(mongo.EmbeddedDocument):
@@ -222,7 +221,7 @@ class ResponseData(mongo.Document):
             yield cls.missing_field_error(field_name)
 
     @classmethod
-    def create(cls, *, response: '_response.OpportunityResponse', form: OpportunityForm,
+    def create(cls, *, response: '_opportunity.OpportunityResponse', form: OpportunityForm,
                data: ser.OpportunityResponse.Create) -> Self | list[FieldError]:
         validated_data: dict[str, Any] = {}
         if len(errors := list(cls.process_data(form, data, validated_data))) > 0:
@@ -232,4 +231,4 @@ class ResponseData(mongo.Document):
         return self
 
 
-from . import response as _response
+from . import opportunity as _opportunity

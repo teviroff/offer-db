@@ -1,4 +1,4 @@
-from serializers.base import *
+from ..base import *
 from pydantic import field_validator
 from pydantic_core import PydanticCustomError
 from ipaddress import IPv4Address

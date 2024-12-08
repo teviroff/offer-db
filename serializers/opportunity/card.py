@@ -1,4 +1,4 @@
-from serializers.base import *
+from ..base import *
 
 
 type Title = Annotated[str, Field(min_length=1, max_length=30)]

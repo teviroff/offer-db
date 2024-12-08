@@ -1,4 +1,4 @@
-from serializers.base import *
+from ..base import *
 
 
 class Create(BaseModel):

@@ -3,20 +3,19 @@ from sqlalchemy.orm import sessionmaker
 from mongoengine import connect
 from minio import Minio
 
-from models.base import Base, File
-from models.auxillary.address import Country, City
+from .models.base import Base, File
+from .models.auxillary.address import Country, City
 # from models.auxillary.phone_number import PhoneNumber
-from models.user import (
+from .models.user import (
     PersonalAPIKey, DeveloperAPIKey, APIKey, User, UserInfo, CV
 )
-from models.opportunity.opportunity import (
+from .models.opportunity.opportunity import (
     Opportunity, OpportunityProvider, OpportunityTag, OpportunityGeoTag,
-    OpportunityToTag, OpportunityToGeoTag, OpportunityCard
+    OpportunityToTag, OpportunityToGeoTag, OpportunityCard, OpportunityResponse,
 )
-from models.opportunity.form import OpportunityForm
-from models.opportunity.response import OpportunityResponse
+from .models.opportunity.form import OpportunityForm
 
-import config as cfg
+from . import config as cfg
 
 def get_pg_engine(user: str, password: str, host: str, port: int, db_name: str):
     return create_engine(f'postgresql+psycopg://{user}:{password}@{host}:{port}/{db_name}')

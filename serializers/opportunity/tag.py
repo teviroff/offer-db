@@ -1,4 +1,4 @@
-from serializers.base import *
+from ..base import *
 
 
 type Name = Annotated[str, Field(min_length=1, max_length=50)]
