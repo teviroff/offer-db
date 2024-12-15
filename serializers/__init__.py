@@ -4,5 +4,5 @@ from .auxillary import (
     Date, Country, City,
 )
 from .base import (
-    Id, APIKey,
+    Id, APIKey, APIKeyModel, assert_api_key,
 )

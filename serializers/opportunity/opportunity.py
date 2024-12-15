@@ -27,7 +27,7 @@ class Filter(BaseModel):
 
     provider_ids: Annotated[list[Id], Field(default_factory=list)]
     tag_ids: Annotated[list[Id], Field(default_factory=list)]
-    geo_tag_ids: Annotated[list[Id], Field(default_factory=list)]
+    geotag_ids: Annotated[list[Id], Field(default_factory=list)]
     page: Annotated[int, Field(default=1, ge=1)]
 
 

@@ -1,5 +1,19 @@
-from typing import Annotated
+from typing import Annotated, TypeIs
+
 from pydantic import BaseModel, Field
 
-type APIKey = Annotated[str, Field(min_length=64, max_length=80, pattern=r'^(dev|personal)\-[0-9a-f]{64}$')]
+API_KEY_PATTERN: str = r'^(dev|personal)\-[0-9a-f]{64}$'
+
+type APIKey = Annotated[str, Field(pattern=API_KEY_PATTERN)]
 type Id = Annotated[int, Field(ge=1)]
+
+
+def assert_api_key(key: str) -> TypeIs[APIKey]:
+    import re
+
+    return re.match(API_KEY_PATTERN, key)
+
+class APIKeyModel(BaseModel):
+    model_config = {'extra': 'ignore'}
+
+    api_key: APIKey

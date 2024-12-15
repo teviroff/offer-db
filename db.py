@@ -10,8 +10,8 @@ from .models.user import (
     PersonalAPIKey, DeveloperAPIKey, APIKey, User, UserInfo, CV
 )
 from .models.opportunity.opportunity import (
-    Opportunity, OpportunityProvider, OpportunityTag, OpportunityGeoTag,
-    OpportunityToTag, OpportunityToGeoTag, OpportunityCard, OpportunityResponse,
+    Opportunity, OpportunityProvider, OpportunityTag, OpportunityGeotag,
+    OpportunityToTag, OpportunityToGeotag, OpportunityCard, OpportunityResponse,
 )
 from .models.opportunity.form import OpportunityForm
 

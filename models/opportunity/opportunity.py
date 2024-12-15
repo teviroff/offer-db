@@ -1,6 +1,6 @@
 from typing import Any, Collection, Self, Iterable, Optional
 
-from minio import Minio, S3Error
+from minio import Minio
 from sqlalchemy import select, func
 
 from ...utils import *
@@ -19,14 +19,24 @@ class Opportunity(Base):
     name: Mapped[str] = mapped_column(String(100))
     link: Mapped[str | None] = mapped_column(String(120), nullable=True)
     provider_id: Mapped[int] = mapped_column(ForeignKey('opportunity_provider.id'))
+    has_description: Mapped[bool] = mapped_column(default=False)
+    has_form: Mapped[bool] = mapped_column(default=False)
 
     provider: Mapped['OpportunityProvider'] = relationship(back_populates='opportunities')
     tags: Mapped[set['OpportunityTag']] = relationship(secondary='opportunity_to_tag', back_populates='opportunities')
-    geo_tags: Mapped[set['OpportunityGeoTag']] = relationship(secondary='opportunity_to_geo_tag',
+    geotags: Mapped[set['OpportunityGeotag']] = relationship(secondary='opportunity_to_geotag',
                                                               back_populates='opportunities')
-    card: Mapped['OpportunityCard'] = relationship(back_populates='opportunity', cascade='all, delete-orphan')
+    cards: Mapped[list['OpportunityCard']] = relationship(back_populates='opportunity', cascade='all, delete-orphan')
     responses: Mapped[list['OpportunityResponse']] = relationship(back_populates='opportunity',
                                                                   cascade='all, delete-orphan')
+
+    @property
+    def description_url(self) -> str:
+        return f'/api/opportunity/description?opportunity_id={self.id}'
+
+    @property
+    def form_url(self) -> str:
+        return f'/api/opportunity/form?opportunity_id={self.id}'
 
     @classmethod
     def create(cls, session: Session, provider: 'OpportunityProvider', fields: ser.Opportunity.Create) -> Self:
@@ -35,11 +45,13 @@ class Opportunity(Base):
         return opportunity
 
     def get_form(self) -> Optional['_form.OpportunityForm']:
+        if not self.has_form:
+            return None
         return _form.OpportunityForm.objects(id=self.id).first()
 
     @classmethod
-    def filter(cls, session: Session, *, providers: Collection['OpportunityProvider'],
-               tags: Collection['OpportunityTag'], geo_tags: Collection['OpportunityGeoTag'],
+    def filter(cls, session: Session, *, providers: Iterable['OpportunityProvider'],
+               tags: Iterable['OpportunityTag'], geotags: Iterable['OpportunityGeotag'],
                page: int, public: bool = True) -> list['Opportunity']:
         statement = select(Opportunity)
         if len(providers) > 0:
@@ -50,14 +62,14 @@ class Opportunity(Base):
                 .group_by(OpportunityToTag.opportunity_id) \
                 .having(func.count(OpportunityToTag.tag_id) == len(tags))
             statement = statement.where(Opportunity.id.in_(substatement))
-        if len(geo_tags) > 0:
-            substatement = select(OpportunityToGeoTag.opportunity_id) \
-                .where(OpportunityToGeoTag.geo_tag_id.in_(geo_tag.id for geo_tag in geo_tags)) \
-                .group_by(OpportunityToGeoTag.opportunity_id) \
-                .having(func.count(OpportunityToGeoTag.geo_tag_id) > 0)
+        if len(geotags) > 0:
+            substatement = select(OpportunityToGeotag.opportunity_id) \
+                .where(OpportunityToGeotag.geotag_id.in_(geo_tag.id for geo_tag in geotags)) \
+                .group_by(OpportunityToGeotag.opportunity_id) \
+                .having(func.count(OpportunityToGeotag.geotag_id) > 0)
             statement = statement.where(Opportunity.id.in_(substatement))
         if public:
-            statement = statement.where(Opportunity.card != None)
+            statement = statement.where(Opportunity.cards.any())
         PAGE_SIZE: int = 12  # TODO: find better place for this constant
         statement = statement.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
         return session.execute(statement).scalars().all()
@@ -66,30 +78,36 @@ class Opportunity(Base):
         for tag in tags:
             self.tags.add(tag)
 
-    def add_geo_tags(self, geo_tags: Iterable['OpportunityGeoTag']) -> None:
+    def add_geotags(self, geo_tags: Iterable['OpportunityGeotag']) -> None:
         for geo_tag in geo_tags:
-            self.geo_tags.add(geo_tag)
+            self.geotags.add(geo_tag)
 
     def update_description(self, minio_client: Minio, file: File) -> None:
+        self.has_description = True
         minio_client.put_object('opportunity-description', f'{self.id}.md', file.stream, file.size)
+
+    def get_tags(self) -> dict[str, str]:
+        return {tag.id: tag.name for tag in self.tags}
+
+    def get_geotags(self) -> dict[str, str]:
+        return {geotag.id: geotag.city.name for geotag in self.geotags}
 
     def get_dict(self) -> dict[str, Any]:
         return {
+            'id': self.id,
             'name': self.name,
             'provider_id': self.provider_id,
             'provider_logo_url': self.provider.logo_url,
             'provider_name': self.provider.name,
-            'tags': [(tag.id, tag.name) for tag in self.tags],
-            'geo_tags': [(geo_tag.id, geo_tag.city.name) for geo_tag in self.geo_tags],
+            'tags': self.get_tags(),
+            'geotags': self.get_geotags(),
         }
 
     def get_description(self, minio_client: Minio) -> bytes:
+        filename = f'{self.id}.md' if self.has_description else 'default.md'
         response = None
         try:
-            response = minio_client.get_object('opportunity-description', f'{self.id}.md')
-            description = response.read()
-        except S3Error:
-            response = minio_client.get_object('opportunity-description', 'default.md')
+            response = minio_client.get_object('opportunity-description', filename)
             description = response.read()
         finally:
             response.close()
@@ -97,12 +115,16 @@ class Opportunity(Base):
         return description
 
 
+class ProviderLogoFormat(StrEnum):
+    PNG = 'png'
+
 # TODO: update logo method
 class OpportunityProvider(Base):
     __tablename__ = 'opportunity_provider'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50))
+    logo_format: Mapped[ProviderLogoFormat | None] = mapped_column(nullable=True, default=None)
 
     opportunities: Mapped[list['Opportunity']] = relationship(back_populates='provider', cascade='all, delete-orphan')
 
@@ -117,17 +139,21 @@ class OpportunityProvider(Base):
         return provider
 
     def get_logo(self, minio_client: Minio) -> bytes:
+        filename = f'{self.id}.{self.logo_format}' if self.logo_format is not None \
+            else 'default.png'
         response = None
         try:
-            response = minio_client.get_object('opportunity-provider-logo', f'{self.id}.png')
-            avatar = response.read()
-        except S3Error:
-            response = minio_client.get_object('opportunity-provider-logo', 'default.png')
+            response = minio_client.get_object('opportunity-provider-logo', filename)
             avatar = response.read()
         finally:
-            response.close()
-            response.release_conn()
+            if response is not None:
+                response.close()
+                response.release_conn()
         return avatar
+
+    @classmethod
+    def get_all(cls, session: Session) -> dict[str, str]:
+        return {str(provider.id): provider.name for provider in session.query(OpportunityProvider).all()}
 
 
 class CreateOpportunityTagErrorCode(IntEnum):
@@ -155,32 +181,41 @@ class OpportunityTag(Base):
         session.add(tag)
         return tag
 
+    @classmethod
+    def get_all(cls, session: Session) -> dict[str, str]:
+        return {str(tag.id): tag.name for tag in session.query(OpportunityTag).all()}
 
-class CreateOpportunityGeoTagErrorCode(IntEnum):
+
+class CreateOpportunityGeotagErrorCode(IntEnum):
     NON_UNIQUE_CITY = 0
 
-class OpportunityGeoTag(Base):
-    __tablename__ = 'opportunity_geo_tag'
+class OpportunityGeotag(Base):
+    __tablename__ = 'opportunity_geotag'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     city_id: Mapped[int] = mapped_column(ForeignKey('city.id'), unique=True)
 
     city: Mapped['City'] = relationship()
-    opportunities: Mapped[list['Opportunity']] = relationship(secondary='opportunity_to_geo_tag',
-                                                              back_populates='geo_tags')
+    opportunities: Mapped[list['Opportunity']] = relationship(secondary='opportunity_to_geotag',
+                                                              back_populates='geotags')
 
     @classmethod
-    def create(cls, session: Session, city: City) -> Self | GenericError[CreateOpportunityGeoTagErrorCode]:
-        geo_tag = session.query(OpportunityGeoTag).filter(OpportunityGeoTag.city == city).first()
-        if geo_tag is not None:
+    def create(cls, session: Session, city: City) -> Self | GenericError[CreateOpportunityGeotagErrorCode]:
+        geotag = session.query(OpportunityGeotag).filter(OpportunityGeotag.city == city).first()
+        if geotag is not None:
             logger.debug('\'OpportunityGeoTag.create\' exited with \'NON_UNIQUE_CITY\' error (city_id=%i)', city.id)
             return GenericError(
-                error_code=CreateOpportunityGeoTagErrorCode.NON_UNIQUE_CITY,
+                error_code=CreateOpportunityGeotagErrorCode.NON_UNIQUE_CITY,
                 error_message='Geo tag for given city already exists',
             )
-        geo_tag = OpportunityGeoTag(city=city)
-        session.add(geo_tag)
-        return geo_tag
+        geotag = OpportunityGeotag(city=city)
+        session.add(geotag)
+        return geotag
+
+    @classmethod
+    def get_all(cls, session: Session) -> dict[str, tuple[str, str]]:
+        return {str(geotag.id): (geotag.city.country.name, geotag.city.name)
+                for geotag in session.query(OpportunityGeotag).all()}
 
 
 class OpportunityToTag(Base):
@@ -190,11 +225,11 @@ class OpportunityToTag(Base):
     tag_id: Mapped[int] = mapped_column(ForeignKey('opportunity_tag.id'), primary_key=True)
 
 
-class OpportunityToGeoTag(Base):
-    __tablename__ = 'opportunity_to_geo_tag'
+class OpportunityToGeotag(Base):
+    __tablename__ = 'opportunity_to_geotag'
 
     opportunity_id: Mapped[int] = mapped_column(ForeignKey('opportunity.id'), primary_key=True)
-    geo_tag_id: Mapped[int] = mapped_column(ForeignKey('opportunity_geo_tag.id'), primary_key=True)
+    geotag_id: Mapped[int] = mapped_column(ForeignKey('opportunity_geotag.id'), primary_key=True)
 
 
 class OpportunityCard(Base):
@@ -205,7 +240,7 @@ class OpportunityCard(Base):
     title: Mapped[str] = mapped_column(String(30))
     subtitle: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
-    opportunity: Mapped['Opportunity'] = relationship(back_populates='card')
+    opportunity: Mapped['Opportunity'] = relationship(back_populates='cards')
 
     @classmethod
     def create(cls, session: Session, opportunity: Opportunity, fields: ser.OpportunityCard.Create) -> Self:
@@ -220,8 +255,8 @@ class OpportunityCard(Base):
             'provider_name': self.opportunity.provider.name,
             'card_title': self.title,
             'card_subtitle': self.subtitle,
-            'tags': [(tag.id, tag.name) for tag in self.opportunity.tags],
-            'geo_tags': [(geo_tag.id, geo_tag.city.name) for geo_tag in self.opportunity.geo_tags],
+            'tags': self.opportunity.get_tags(),
+            'geotags': self.opportunity.get_geotags(),
         }
 
 

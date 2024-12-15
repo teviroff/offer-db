@@ -1,6 +1,7 @@
-from typing import Any, Callable, Self, Optional
+from typing import Any, Callable, Self, Optional, Generator
 from datetime import datetime, UTC
 from ipaddress import IPv4Address
+from enum import Enum
 
 from sqlalchemy.dialects.postgresql import INET, TIMESTAMP
 from minio import Minio
@@ -101,7 +102,7 @@ class DeveloperAPIKey(Base):
 class APIKey:
     """Helper class, that encapsulates getter methods of all key types."""
 
-    type KeysUnion = PersonalAPIKey | DeveloperAPIKey
+    KeysUnion = PersonalAPIKey | DeveloperAPIKey
 
     class Type(IntEnum):
         Personal = 0
@@ -142,7 +143,7 @@ class User(Base):
     personal_api_keys: Mapped[list['PersonalAPIKey']] = \
         relationship(back_populates='user', cascade='all, delete-orphan')
     user_info: Mapped['UserInfo'] = relationship(back_populates='user', cascade='all, delete-orphan')
-    responses: Mapped[list['OpportunityResponse']] = \
+    responses: Mapped[set['OpportunityResponse']] = \
         relationship(back_populates='user', cascade='all, delete-orphan')
 
     @classmethod
@@ -179,40 +180,19 @@ class User(Base):
             return None
         return user
 
-    def get_info(self) -> dict:
-        return {
-            'name': self.user_info.name,
-            'surname': self.user_info.surname,
-            'birthday': self.user_info.birthday.strftime('%Y-%m-%d') if self.user_info.birthday is not None else None,
-            # TODO: city, phone number
-            'avatar_url': f'/api/user/avatar/{self.id}'
-        }
 
-    def get_avatar(self, minio_client: Minio) -> bytes:
-        response = None
-        try:
-            response = minio_client.get_object('user-avatar', f'{self.id}.png')
-            avatar = response.read()
-        except S3Error:
-            response = minio_client.get_object('user-avatar', 'default.png')
-            avatar = response.read()
-        finally:
-            response.close()
-            response.release_conn()
-        return avatar
-
-    def get_cvs(self) -> list[tuple[int, str]]:
-        return [(cv.id, cv.name) for cv in self.user_info.cvs]
-
+class UserAvatarFormat(Enum):
+    PNG = ('png', 'image/png')
 
 # TODO: store address & phone number
 class UserInfo(Base):
     __tablename__ = 'user_info'
 
     user_id: Mapped[int] = mapped_column(ForeignKey('user.id'), primary_key=True)
-    name: Mapped[str] = mapped_column(String(30), nullable=True)
-    surname: Mapped[str] = mapped_column(String(40), nullable=True)
-    birthday: Mapped[datetime] = mapped_column(nullable=True)
+    name: Mapped[str] = mapped_column(String(30), nullable=True, default=None)
+    surname: Mapped[str] = mapped_column(String(40), nullable=True, default=None)
+    birthday: Mapped[datetime] = mapped_column(nullable=True, default=None)
+    avatar_format: Mapped[UserAvatarFormat | None] = mapped_column(nullable=True, default=None)
 
     user: Mapped['User'] = relationship(back_populates='user_info')
     cvs: Mapped[list['CV']] = relationship(back_populates='user_info', cascade='all, delete-orphan')
@@ -220,6 +200,10 @@ class UserInfo(Base):
     @property
     def fullname(self) -> str:
         return f'{self.name} {self.surname}'
+
+    @property
+    def avatar_url(self) -> str:
+        return f'/api/user/avatar?user_id={self.user_id}'
 
     def update_name(self, new_name: ser.UserInfo.Name) -> None:
         self.name = new_name
@@ -239,14 +223,46 @@ class UserInfo(Base):
     def update(self, fields: ser.UserInfo.Update) -> None:
         """Method, that encapsulates logic for updates of all fields."""
 
-        for field, handler in UserInfo.__update_field_handlers:
+        for field, handler in UserInfo.update_field_handlers:
             if getattr(fields, field) is None:
                 continue
             handler(self, getattr(fields, field))
 
-    def update_avatar(self, minio_client: Minio, file: File) -> None:
-        minio_client.put_object('user-avatar', f'{self.user_id}.png', file.stream, file.size)
+    def update_avatar(self, minio_client: Minio, file: File[UserAvatarFormat]) -> None:
+        self.avatar_format = file.format
+        minio_client.put_object(
+            'user-avatar', f'{self.user_id}.{file.format.value[0]}', file.stream, 
+            file.size if file.size else -1, part_size=(5 * 1024 * 1024)
+        )
 
+    def get_dict(self) -> dict[str, Any]:
+        return {
+            'name': self.name,
+            'surname': self.surname,
+            'birthday': self.birthday.strftime('%Y-%m-%d') if self.birthday is not None else None,
+            # TODO: city, phone number
+            'avatar_url': self.avatar_url
+        }
+
+    def get_avatar(self, minio_client: Minio) -> bytes:
+        filename = f'{self.user_id}.{self.avatar_format.value[0]}' if self.avatar_format is not None \
+            else 'default.png'
+        response = None
+        try:
+            response = minio_client.get_object('user-avatar', filename)
+            avatar = response.read()
+        finally:
+            if response is not None:
+                response.close()
+                response.release_conn()
+        return avatar
+
+    def get_cvs(self) -> dict[str, str]:
+        return {str(cv.id): cv.name for cv in self.cvs}
+
+
+class CVFormat(Enum):
+    PDF = ('pdf', 'application/pdf')
 
 # TODO: CV sharing & updating file of an existing CV
 class CV(Base):
@@ -255,24 +271,26 @@ class CV(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_info_id: Mapped[int] = mapped_column(ForeignKey('user_info.user_id'))
     name: Mapped[str] = mapped_column(String(50))
+    format: Mapped[CVFormat]
     public: Mapped[bool] = mapped_column(default=False)
 
     user_info: Mapped['UserInfo'] = relationship(back_populates='cvs')
 
     @classmethod
-    def add(cls, session: Session, minio_client: Minio, user: User, file: File, name: ser.CV.Name) -> Self:
-        cv = CV(user_info=user.user_info, name=name.name)
+    def add(cls, session: Session, minio_client: Minio, user: User,
+            file: File[CVFormat], name: ser.CV.Name) -> Self:
+        cv = CV(user_info=user.user_info, name=name, format=file.format)
         session.add(cv)
         session.flush([cv])
-        minio_client.put_object('user-cv', f'{cv.id}.pdf', file.stream, file.size)
+        minio_client.put_object('user-cv', f'{cv.id}.{file.format.value[0]}', file.stream, file.size)
         return cv
 
     def rename(self, name: ser.CV.Name) -> None:
-        self.name = name.name
+        self.name = name
 
     def delete(self, session: Session, minio_client: Minio) -> None:
         try:
-            minio_client.remove_object('user-cv', f'{self.id}.pdf')
+            minio_client.remove_object('user-cv', f'{self.id}.{self.format.value[0]}')
         except S3Error:
             pass
         session.delete(self)

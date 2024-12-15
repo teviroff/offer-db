@@ -1,8 +1,8 @@
 from .opportunity import (
     Opportunity, OpportunityProvider,
     CreateOpportunityTagErrorCode, OpportunityTag,
-    CreateOpportunityGeoTagErrorCode, OpportunityGeoTag,
-    OpportunityToTag, OpportunityToGeoTag,
+    CreateOpportunityGeotagErrorCode, OpportunityGeotag,
+    OpportunityToTag, OpportunityToGeotag,
     OpportunityCard, OpportunityResponse,
 )
 from .form import (

@@ -8,10 +8,10 @@ type Surname = Annotated[str, Field(max_length=50)]
 class Update(BaseModel):
     model_config = {'extra': 'ignore'}
 
-    name: Annotated[Name | None, Field(default=None)]
-    surname: Annotated[Surname | None, Field(default=None)]
-    birthday: Annotated[_.Date | None, Field(default=None)]
-    city_id: Annotated[Id | None, Field(default=None)]
+    name: Name | None = None
+    surname: Surname | None = None
+    birthday: _.Date | None = None
+    city_id: Id | None = None
 
 
 class UpdatePhoneNumber(BaseModel):

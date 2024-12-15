@@ -48,6 +48,9 @@ class FormField(mongo.EmbeddedDocument):
     @abstractmethod
     def validate_input(self, field_name: str, input: Any) -> None | FieldError: ...
 
+    @abstractmethod
+    def get_dict(self) -> dict[str, Any]: ...
+
 
 class StringField(FormField):
     max_length = mongo.IntField()
@@ -72,8 +75,9 @@ class StringField(FormField):
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            'type': 'string',
             'label': self.label,
-            'is_requred': self.is_required,
+            'is_required': self.is_required,
             'max_length': self.max_length,
         }
 
@@ -97,8 +101,9 @@ class RegexField(StringField):
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            'type': 'regex',
             'label': self.label,
-            'is_requred': self.is_required,
+            'is_required': self.is_required,
             'max_length': self.max_length,
             'regex': self.regex,
         }
@@ -127,8 +132,9 @@ class ChoiceField(FormField):
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            'type': 'choice',
             'label': self.label,
-            'is_requred': self.is_required,
+            'is_required': self.is_required,
             'choices': self.choices,
         }
 
@@ -188,6 +194,9 @@ class OpportunityForm(mongo.Document):
     def update_fields(self, fields: ser.OpportunityForm.Fields) -> None:
         self.fields = self.create_fields(fields)
         self.save()
+
+    def get_dict(self) -> dict[str, Any]:
+        return {field_name: field.get_dict() for field_name, field in self.fields}
 
 
 class ResponseData(mongo.Document):
