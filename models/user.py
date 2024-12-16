@@ -241,7 +241,6 @@ class UserInfo(Base):
             'surname': self.surname,
             'birthday': self.birthday.strftime('%Y-%m-%d') if self.birthday is not None else None,
             # TODO: city, phone number
-            'avatar_url': self.avatar_url
         }
 
     def get_avatar(self, minio_client: Minio) -> bytes:

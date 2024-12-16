@@ -50,9 +50,15 @@ class Opportunity(Base):
         return _form.OpportunityForm.objects(id=self.id).first()
 
     @classmethod
-    def filter(cls, session: Session, *, providers: Iterable['OpportunityProvider'],
-               tags: Iterable['OpportunityTag'], geotags: Iterable['OpportunityGeotag'],
-               page: int, public: bool = True) -> list['Opportunity']:
+    def filter(
+        cls, session: Session,
+        *, providers: Iterable['OpportunityProvider'],
+        tags: Iterable['OpportunityTag'],
+        geotags: Iterable['OpportunityGeotag'],
+        page: int,
+        user: Optional['_user.User'] = None,
+        public: bool = True,
+    ) -> list['Opportunity']:
         statement = select(Opportunity)
         if len(providers) > 0:
             statement = statement.where(Opportunity.provider_id.in_(provider.id for provider in providers))
@@ -68,6 +74,8 @@ class Opportunity(Base):
                 .group_by(OpportunityToGeotag.opportunity_id) \
                 .having(func.count(OpportunityToGeotag.geotag_id) > 0)
             statement = statement.where(Opportunity.id.in_(substatement))
+        if user is not None:
+            statement = statement.where(Opportunity.id.in_(response.opportunity_id for response in user.responses))
         if public:
             statement = statement.where(Opportunity.cards.any())
         PAGE_SIZE: int = 12  # TODO: find better place for this constant
