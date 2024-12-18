@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from mongoengine import connect
 from minio import Minio
 
-from .models.base import Base, File
+from .models.base import Base, FileStream
 from .models.auxillary.address import Country, City
 # from models.auxillary.phone_number import PhoneNumber
 from .models.user import (
