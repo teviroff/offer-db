@@ -1,4 +1,4 @@
-from typing import Any, Collection, Self, Iterable, Optional
+from typing import Any, Self, Iterable, Optional
 
 from minio import Minio
 from sqlalchemy import select, func
@@ -11,6 +11,9 @@ from ..auxillary.address import City
 from .. import user as _user
 from . import form as _form
 
+
+class OpportunityDescriptionFormat(Enum):
+    MARKDOWN = ('md', 'text/markdown')
 
 class Opportunity(Base):
     __tablename__ = 'opportunity'
@@ -40,7 +43,7 @@ class Opportunity(Base):
 
     @classmethod
     def create(cls, session: Session, provider: 'OpportunityProvider', fields: ser.Opportunity.Create) -> Self:
-        opportunity = Opportunity(name=fields.name, link=fields.link, provider=provider)
+        opportunity = Opportunity(name=fields.name, link=str(fields.link), provider=provider)
         session.add(opportunity)
         return opportunity
 
@@ -90,7 +93,7 @@ class Opportunity(Base):
         for geo_tag in geo_tags:
             self.geotags.add(geo_tag)
 
-    def update_description(self, minio_client: Minio, file: File) -> None:
+    def update_description(self, minio_client: Minio, file: FileStream[OpportunityDescriptionFormat]) -> None:
         self.has_description = True
         minio_client.put_object('opportunity-description', f'{self.id}.md', file.stream, file.size)
 
@@ -123,8 +126,8 @@ class Opportunity(Base):
         return description
 
 
-class ProviderLogoFormat(StrEnum):
-    PNG = 'png'
+class ProviderLogoFormat(Enum):
+    PNG = ('png', 'image/png')
 
 # TODO: update logo method
 class OpportunityProvider(Base):
@@ -245,8 +248,8 @@ class OpportunityCard(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     opportunity_id: Mapped[int] = mapped_column(ForeignKey('opportunity.id'))
-    title: Mapped[str] = mapped_column(String(30))
-    subtitle: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    title: Mapped[str] = mapped_column(String(100))
+    subtitle: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     opportunity: Mapped['Opportunity'] = relationship(back_populates='cards')
 

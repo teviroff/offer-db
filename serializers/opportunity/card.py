@@ -1,8 +1,8 @@
 from ..base import *
 
 
-type Title = Annotated[str, Field(min_length=1, max_length=30)]
-type Subtitle = Annotated[str, Field(min_length=1, max_length=30)]
+type Title = Annotated[str, Field(min_length=1, max_length=100)]
+type Subtitle = Annotated[str, Field(min_length=1, max_length=50)]
 
 class Create(BaseModel):
     model_config = {'extra': 'ignore'}

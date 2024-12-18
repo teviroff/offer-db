@@ -5,7 +5,7 @@ from ..base import *
 from . import form
 
 
-type Name = Annotated[str, Field(min_length=1, max_length=50)]
+type Name = Annotated[str, Field(min_length=1, max_length=100)]
 
 class Create(BaseModel):
     model_config = {'extra': 'ignore'}
@@ -16,8 +16,8 @@ class Create(BaseModel):
 
     @field_validator('link')
     @classmethod
-    def validate_link_length(cls, link: str) -> str:
-        if len(link) > 120:
+    def validate_link_length(cls, link: HttpUrl) -> str:
+        if len(str(link)) > 120:
             raise PydanticCustomError('string_too_long', 'Opportunity URL can contain at most 120 characters')
         return link
 

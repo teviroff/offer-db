@@ -1,14 +1,13 @@
-from typing import Any, Callable, Self, Optional, Generator
+from typing import Any, Callable, Self, Optional
 from datetime import datetime, UTC
 from ipaddress import IPv4Address
-from enum import Enum
 
 from sqlalchemy.dialects.postgresql import INET, TIMESTAMP
 from minio import Minio
-from minio.error import S3Error
 
 from ..utils import *
 from .base import *
+from .auxillary.address import *
 from .. import serializers as ser
 
 
@@ -184,7 +183,7 @@ class User(Base):
 class UserAvatarFormat(Enum):
     PNG = ('png', 'image/png')
 
-# TODO: store address & phone number
+# TODO: store address
 class UserInfo(Base):
     __tablename__ = 'user_info'
 
@@ -195,7 +194,10 @@ class UserInfo(Base):
     avatar_format: Mapped[UserAvatarFormat | None] = mapped_column(nullable=True, default=None)
 
     user: Mapped['User'] = relationship(back_populates='user_info')
+    # phone_number: Mapped[Optional['PhoneNumber']] = \
+    #     relationship(back_populates='user_info', cascade='all, delete-orphan')
     cvs: Mapped[list['CV']] = relationship(back_populates='user_info', cascade='all, delete-orphan')
+    # files: Mapped[list['File']] = relationship(back_populates='user_info', cascade='all, delete-orphan')
 
     @property
     def fullname(self) -> str:
@@ -228,7 +230,7 @@ class UserInfo(Base):
                 continue
             handler(self, getattr(fields, field))
 
-    def update_avatar(self, minio_client: Minio, file: File[UserAvatarFormat]) -> None:
+    def update_avatar(self, minio_client: Minio, file: FileStream[UserAvatarFormat]) -> None:
         self.avatar_format = file.format
         minio_client.put_object(
             'user-avatar', f'{self.user_id}.{file.format.value[0]}', file.stream, 
@@ -260,6 +262,32 @@ class UserInfo(Base):
         return {str(cv.id): cv.name for cv in self.cvs}
 
 
+# class PhoneNumber(Base):
+#     __tablename__ = 'phone_number'
+
+#     user_info_id: Mapped[int] = mapped_column(ForeignKey('user_info.user_id'), primary_key=True)
+#     country_id: Mapped[int] = mapped_column(ForeignKey('country.id'))
+#     subscriber_number: Mapped[str] = mapped_column(String(12))
+
+#     user_info: Mapped['UserInfo'] = relationship(back_populates='phone_number')
+#     country: Mapped['Country'] = relationship()
+
+#     @classmethod
+#     def update(
+#         cls, session: Session,
+#         user: 'User',
+#         country: 'Country',
+#         subscriber_number: ser.auxillary.PhoneNumber.SubscriberNumber,
+#     ) -> Self:
+#         if (self := user.user_info.phone_number) is None:
+#             self = PhoneNumber(user_info=user.user_info, country=country, subscriber_number=subscriber_number)
+#             session.add(self)
+#         else:
+#             self.country = country
+#             self.subscriber_number = subscriber_number
+#         return self
+
+
 class CVFormat(Enum):
     PDF = ('pdf', 'application/pdf')
 
@@ -277,7 +305,7 @@ class CV(Base):
 
     @classmethod
     def add(cls, session: Session, minio_client: Minio, user: User,
-            file: File[CVFormat], name: ser.CV.Name) -> Self:
+            file: FileStream[CVFormat], name: ser.CV.Name) -> Self:
         cv = CV(user_info=user.user_info, name=name, format=file.format)
         session.add(cv)
         session.flush([cv])
@@ -288,11 +316,21 @@ class CV(Base):
         self.name = name
 
     def delete(self, session: Session, minio_client: Minio) -> None:
-        try:
-            minio_client.remove_object('user-cv', f'{self.id}.{self.format.value[0]}')
-        except S3Error:
-            pass
+        minio_client.remove_object('user-cv', f'{self.id}.{self.format.value[0]}')
         session.delete(self)
+
+
+# class FileFormat(Enum):
+#     PDF = ('pdf', 'application/pdf')
+
+# class File(Base):
+#     __tablename__ = 'file'
+
+#     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+#     user_info_id: Mapped[int] = mapped_column(ForeignKey('user_info.user_id'))
+#     format: Mapped[FileFormat]
+
+#     user_info: Mapped['UserInfo'] = relationship(back_populates='files')
 
 
 # magic fix, placing it in the beggining of a file results in error

@@ -25,8 +25,10 @@ class Date(BaseModel):
 class PhoneNumber(BaseModel):
     model_config = {'extra': 'ignore'}
 
+    type SubscriberNumber = Annotated[str, Field(max_length=12, pattern=r'\d+')]
+
     country_id: Id
-    sub_number: Annotated[str, Field(max_length=12, pattern=r'\d+')]
+    subscriber_number: SubscriberNumber
 
 
 class Country(BaseModel):
@@ -34,9 +36,11 @@ class Country(BaseModel):
 
     type Name = Annotated[str, Field(min_length=1, max_length=50)]
     type PhoneCode = Annotated[int, Field(ge=1, le=999)]
+    type Flag = Annotated[str, Field(min_length=1, max_length=1)]
 
     name: Name
     phone_code: PhoneCode
+    flag: Flag
 
 
 class City(BaseModel):

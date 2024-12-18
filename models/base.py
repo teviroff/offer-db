@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import Enum
 from typing import BinaryIO
 from dataclasses import dataclass
 
@@ -15,7 +15,7 @@ class Base(DeclarativeBase):
 
 
 @dataclass
-class File[F: StrEnum]:
+class FileStream[F: Enum]:
     stream: BinaryIO
     format: F
     size: int | None

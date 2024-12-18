@@ -14,6 +14,7 @@ class Country(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True)
     phone_code: Mapped[str] = mapped_column(String(3))
+    flag: Mapped[str] = mapped_column(String(1))
 
     cities: Mapped[list['City']] = relationship(back_populates='country')
 
@@ -26,7 +27,7 @@ class Country(Base):
                 error_code=CreateCountryErrorCode.NON_UNIQUE_NAME,
                 error_message='Country with given name already exists'
             )
-        country = Country(name=fields.name, phone_code=fields.phone_code)
+        country = Country(name=fields.name, phone_code=fields.phone_code, flag=fields.flag)
         session.add(country)
         return country
 
