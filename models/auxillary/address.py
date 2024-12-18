@@ -14,7 +14,7 @@ class Country(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True)
     phone_code: Mapped[str] = mapped_column(String(3))
-    flag: Mapped[str] = mapped_column(String(1))
+    flag: Mapped[str] = mapped_column(String(4))
 
     cities: Mapped[list['City']] = relationship(back_populates='country')
 

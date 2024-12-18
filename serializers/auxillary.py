@@ -36,7 +36,7 @@ class Country(BaseModel):
 
     type Name = Annotated[str, Field(min_length=1, max_length=50)]
     type PhoneCode = Annotated[int, Field(ge=1, le=999)]
-    type Flag = Annotated[str, Field(min_length=1, max_length=1)]
+    type Flag = Annotated[str, Field(min_length=1, max_length=4)]
 
     name: Name
     phone_code: PhoneCode

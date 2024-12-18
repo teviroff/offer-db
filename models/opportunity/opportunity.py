@@ -52,17 +52,15 @@ class Opportunity(Base):
             return None
         return _form.OpportunityForm.objects(id=self.id).first()
 
-    @classmethod
-    def filter(
-        cls, session: Session,
+    @staticmethod
+    def apply_filters_to_statement[S](
+        statement: S,
         *, providers: Iterable['OpportunityProvider'],
         tags: Iterable['OpportunityTag'],
         geotags: Iterable['OpportunityGeotag'],
-        page: int,
         user: Optional['_user.User'] = None,
         public: bool = True,
-    ) -> list['Opportunity']:
-        statement = select(Opportunity)
+    ):
         if len(providers) > 0:
             statement = statement.where(Opportunity.provider_id.in_(provider.id for provider in providers))
         if len(tags) > 0:
@@ -81,8 +79,42 @@ class Opportunity(Base):
             statement = statement.where(Opportunity.id.in_(response.opportunity_id for response in user.responses))
         if public:
             statement = statement.where(Opportunity.cards.any())
-        PAGE_SIZE: int = 12  # TODO: find better place for this constant
-        statement = statement.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
+        return statement
+
+    # The maximum amount of opportunities returned from database in one query
+    PAGE_SIZE: int = 12 
+
+    @classmethod
+    def filter_pages(
+        cls, session: Session,
+        *, providers: Iterable['OpportunityProvider'],
+        tags: Iterable['OpportunityTag'],
+        geotags: Iterable['OpportunityGeotag'],
+        user: Optional['_user.User'] = None,
+        public: bool = True,
+    ) -> int:
+        statement = cls.apply_filters_to_statement(select(func.count()).select_from(Opportunity),
+                                                   providers=providers, tags=tags, geotags=geotags,
+                                                   user=user, public=public)
+        count: int = session.execute(statement).scalars().first()
+        return (count + cls.PAGE_SIZE - 1) // cls.PAGE_SIZE
+
+    @classmethod
+    def filter(
+        cls, session: Session,
+        *, providers: Iterable['OpportunityProvider'],
+        tags: Iterable['OpportunityTag'],
+        geotags: Iterable['OpportunityGeotag'],
+        page: int,
+        user: Optional['_user.User'] = None,
+        public: bool = True,
+    ) -> list['Opportunity']:
+        statement = (
+            cls.apply_filters_to_statement(select(Opportunity), providers=providers, tags=tags,
+                                           geotags=geotags, user=user, public=public)
+                .offset((page - 1) * cls.PAGE_SIZE)
+                .limit(cls.PAGE_SIZE)
+        )
         return session.execute(statement).scalars().all()
 
     def add_tags(self, tags: Iterable['OpportunityTag']) -> None:
