@@ -73,7 +73,7 @@ class StringField(FormField):
                 context={'field_name': field_name},
             )
 
-    def to_dict(self) -> dict[str, Any]:
+    def get_dict(self) -> dict[str, Any]:
         return {
             'type': 'string',
             'label': self.label,
@@ -99,7 +99,7 @@ class RegexField(StringField):
                 context={'field_name': field_name},
             )
 
-    def to_dict(self) -> dict[str, Any]:
+    def get_dict(self) -> dict[str, Any]:
         return {
             'type': 'regex',
             'label': self.label,
@@ -130,7 +130,7 @@ class ChoiceField(FormField):
                 context={'field_name': field_name},
             )
 
-    def to_dict(self) -> dict[str, Any]:
+    def get_dict(self) -> dict[str, Any]:
         return {
             'type': 'choice',
             'label': self.label,
@@ -196,7 +196,7 @@ class OpportunityForm(mongo.Document):
         self.save()
 
     def get_dict(self) -> dict[str, Any]:
-        return {field_name: field.get_dict() for field_name, field in self.fields}
+        return {field_name: field.get_dict() for field_name, field in self.fields.items()}
 
 
 class ResponseData(mongo.Document):
@@ -231,7 +231,7 @@ class ResponseData(mongo.Document):
 
     @classmethod
     def create(cls, *, response: '_opportunity.OpportunityResponse', form: OpportunityForm,
-               data: ser.OpportunityResponse.Create) -> Self | list[FieldError]:
+               data: ser.OpportunityResponse.Data) -> Self | list[FieldError]:
         validated_data: dict[str, Any] = {}
         if len(errors := list(cls.process_data(form, data, validated_data))) > 0:
             return errors

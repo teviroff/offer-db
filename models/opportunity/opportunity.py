@@ -40,7 +40,7 @@ class Opportunity(Base):
 
     @classmethod
     def create(cls, session: Session, provider: 'OpportunityProvider', fields: ser.Opportunity.Create) -> Self:
-        opportunity = Opportunity(name=fields.name, link=fields.link, provider=provider)
+        opportunity = Opportunity(name=fields.name, link=str(fields.link), provider=provider)
         session.add(opportunity)
         return opportunity
 
@@ -104,6 +104,7 @@ class Opportunity(Base):
         return {
             'id': self.id,
             'name': self.name,
+            'link': self.link,
             'provider_id': self.provider_id,
             'provider_logo_url': self.provider.logo_url,
             'provider_name': self.provider.name,
@@ -281,11 +282,11 @@ class OpportunityResponse(Base):
 
     @classmethod
     def create(cls, session: Session, user: _user.User, opportunity: 'Opportunity',
-               form: '_form.OpportunityForm', data: ser.OpportunityResponse.Create) -> Self | list['_form.FieldError']:
+               form: '_form.OpportunityForm', data: ser.OpportunityResponse.Data) -> Self | list['_form.FieldError']:
         response = OpportunityResponse(user=user, opportunity=opportunity)
         session.add(response)
         session.flush([response])
-        saved_data = _form.ResponseData.create(response_id=response.id, form=form, data=data)
+        saved_data = _form.ResponseData.create(response=response, form=form, data=data)
         if not isinstance(saved_data, _form.ResponseData):
             return saved_data
         return response
