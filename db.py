@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from mongoengine import connect
 from minio import Minio
 
-from .models.base import Base, FileStream
+from .models.base import Base, File
 from .models.auxillary.address import Country, City
 # from models.auxillary.phone_number import PhoneNumber
 from .models.user import (
@@ -20,14 +20,14 @@ from . import config as cfg
 def get_pg_engine(user: str, password: str, host: str, port: int, db_name: str):
     return create_engine(f'postgresql+psycopg://{user}:{password}@{host}:{port}/{db_name}')
 
-def connect_mongo_db(user: str, password: str, host: str, port: int, db_name: str):
-    connect(host=f'mongodb://{user}:{password}@{host}:{port}/{db_name}')
+def connect_mongo_db(user: str, password: str, host: str, port: int, db_name: str, auth_db_name: str):
+    connect(host=f'mongodb://{user}:{password}@{host}:{port}/{db_name}?authSource={auth_db_name}')
 
 # TODO: figure out cerificates
 def get_minio_client(access_key: str, secret_key: str, host: str, port: int):
     return Minio(f'{host}:{port}', access_key=access_key, secret_key=secret_key, secure=False)
 
-# run 'setup/dbconfig.bat' if you don't have dbconfig.py
+# run 'setup/dbconfig.bat' if you don't have config.py
 pg_engine = get_pg_engine(
     user=cfg.PG_USERNAME,
     password=cfg.PG_PASSWORD,
@@ -41,6 +41,7 @@ connect_mongo_db(
     host=cfg.MONGO_HOST,
     port=cfg.MONGO_PORT,
     db_name=cfg.MONGO_DB_NAME,
+    auth_db_name=cfg.MONGO_AUTH_DB_NAME,
 )
 minio_client = get_minio_client(
     access_key=cfg.MINIO_ACCESS_KEY,

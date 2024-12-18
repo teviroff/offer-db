@@ -16,7 +16,7 @@ class Create(BaseModel):
 
     @field_validator('link')
     @classmethod
-    def validate_link_length(cls, link: HttpUrl) -> str:
+    def validate_link_length(cls, link: HttpUrl) -> HttpUrl:
         if len(str(link)) > 120:
             raise PydanticCustomError('string_too_long', 'Opportunity URL can contain at most 120 characters')
         return link
